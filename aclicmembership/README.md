@@ -81,6 +81,13 @@ npm run dev                    # http://localhost:3000
 
 Every push to your default branch redeploys automatically.
 
+**Keeping a free Supabase project awake.** Supabase pauses free-plan projects after
+7 days without activity, and the form stops working until someone restores the project
+in the dashboard. `vercel.json` defines a daily Vercel cron that calls `/api/keepalive`,
+which runs one tiny query to keep the project active. To lock the endpoint down, add a
+`CRON_SECRET` environment variable in Vercel set to any long random string; Vercel sends
+it with each cron call. On Supabase Pro, projects never pause and the cron is optional.
+
 ### 5. Create your first reviewer account
 
 1. Supabase → **Authentication → Users → Add user**. Enter an email and password and
