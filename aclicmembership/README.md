@@ -112,9 +112,11 @@ but sees nothing — the allowlist, not the account, grants access.
 Applicants are children, so the design assumes the public keys will leak eventually and
 makes that survivable.
 
-- **Row Level Security is on, with no policies.** Neither the `anon` key nor a
-  signed-in browser session can read or write `applications` directly. Someone who
-  lifts the public key out of the page source gets nothing.
+- **The tables are deny-all for browser roles.** Row Level Security is on, a
+  restrictive `false` policy blocks the `anon` and `authenticated` roles, and those
+  roles hold no table privileges at all. Neither the `anon` key nor a signed-in
+  browser session can read or write `applications` directly. Someone who lifts the
+  public key out of the page source gets nothing.
 - **Every read and write goes through a server route** that holds the `service_role`
   key and performs its own validation and admin checks.
 - **The storage bucket is private.** Uploads use a single-use signed URL minted

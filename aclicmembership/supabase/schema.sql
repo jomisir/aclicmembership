@@ -40,6 +40,7 @@ exception when duplicate_object then null; end $$;
 create or replace function generate_reference_code()
 returns text
 language plpgsql
+set search_path = ''
 as $$
 declare
   -- Crockford-ish alphabet: no I, L, O, U, 0, 1 — unambiguous when read aloud.
@@ -132,13 +133,18 @@ create table if not exists public.applications (
 );
 
 create index if not exists applications_created_at_idx on public.applications (created_at desc);
-create index if not exists applications_status_idx     on public.applications (status);
-create index if not exists applications_reference_idx  on public.applications (reference_code);
+
+-- Earlier versions of this script created these. Neither is used:
+-- reference_code already has an index from its UNIQUE constraint, and the
+-- dashboard filters by status in the app, not in a query.
+drop index if exists public.applications_status_idx;
+drop index if exists public.applications_reference_idx;
 
 -- Keep updated_at honest.
 create or replace function public.touch_updated_at()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 begin
   new.updated_at := now();
@@ -165,18 +171,36 @@ create table if not exists public.admins (
 -- ---------------------------------------------------------------------
 -- 5. Row Level Security
 --
--- Deliberately deny-all: no policies are defined for the `anon` or
--- `authenticated` roles, so neither the public form nor a logged-in
--- browser session can touch these tables directly. Every read and write
--- goes through a Next.js server route using the service role key, which
--- bypasses RLS and applies its own validation and admin checks.
+-- Deliberately deny-all for the `anon` and `authenticated` roles, so
+-- neither the public form nor a logged-in browser session can touch these
+-- tables directly. Every read and write goes through a Next.js server
+-- route using the service role key, which bypasses RLS and applies its
+-- own validation and admin checks.
 --
 -- This matters because the data is about children: locking the tables
--- means a leaked anon key exposes nothing.
+-- means a leaked anon key exposes nothing. Three layers:
+--   1. RLS is on.
+--   2. A RESTRICTIVE `false` policy makes the denial explicit, and stops
+--      any permissive policy added later from opening the tables by
+--      accident. Drop it deliberately if browser access is ever wanted.
+--   3. The browser roles hold no table privileges at all, so access stays
+--      denied even if RLS were switched off. (RLS does not cover TRUNCATE.)
 -- ---------------------------------------------------------------------
 
 alter table public.applications enable row level security;
 alter table public.admins       enable row level security;
+
+revoke all on table public.applications, public.admins from anon, authenticated;
+
+drop policy if exists "Deny direct access" on public.applications;
+create policy "Deny direct access" on public.applications
+  as restrictive for all to anon, authenticated
+  using (false) with check (false);
+
+drop policy if exists "Deny direct access" on public.admins;
+create policy "Deny direct access" on public.admins
+  as restrictive for all to anon, authenticated
+  using (false) with check (false);
 
 -- ---------------------------------------------------------------------
 -- 6. Storage: recommendation letters (private bucket)
