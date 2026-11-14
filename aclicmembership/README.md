@@ -81,6 +81,13 @@ npm run dev                    # http://localhost:3000
 
 Every push to your default branch redeploys automatically.
 
+**Keeping a free Supabase project awake.** Supabase pauses free-plan projects after
+7 days without activity, and the form stops working until someone restores the project
+in the dashboard. `vercel.json` defines a daily Vercel cron that calls `/api/keepalive`,
+which runs one tiny query to keep the project active. To lock the endpoint down, add a
+`CRON_SECRET` environment variable in Vercel set to any long random string; Vercel sends
+it with each cron call. On Supabase Pro, projects never pause and the cron is optional.
+
 ### 5. Create your first reviewer account
 
 1. Supabase → **Authentication → Users → Add user**. Enter an email and password and
@@ -105,9 +112,11 @@ but sees nothing — the allowlist, not the account, grants access.
 Applicants are children, so the design assumes the public keys will leak eventually and
 makes that survivable.
 
-- **Row Level Security is on, with no policies.** Neither the `anon` key nor a
-  signed-in browser session can read or write `applications` directly. Someone who
-  lifts the public key out of the page source gets nothing.
+- **The tables are deny-all for browser roles.** Row Level Security is on, a
+  restrictive `false` policy blocks the `anon` and `authenticated` roles, and those
+  roles hold no table privileges at all. Neither the `anon` key nor a signed-in
+  browser session can read or write `applications` directly. Someone who lifts the
+  public key out of the page source gets nothing.
 - **Every read and write goes through a server route** that holds the `service_role`
   key and performs its own validation and admin checks.
 - **The storage bucket is private.** Uploads use a single-use signed URL minted
